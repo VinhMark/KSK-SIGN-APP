@@ -1,0 +1,80 @@
+<Window x:Class="GKSKLaiXe.Windows.SqlSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Thiết lập kết nối SQL"
+        Width="540" Height="470"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Thiết lập kết nối SQL"
+                       FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock Margin="0,6,0,18"
+                       TextWrapping="Wrap"
+                       Text="Không tìm thấy cấu hình SQL hoặc kết nối hiện tại không sử dụng được. Vui lòng nhập lại thông tin kết nối."/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="58"/>
+                <RowDefinition Height="58"/>
+                <RowDefinition Height="58"/>
+                <RowDefinition Height="58"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0"
+                       Text="Server"
+                       VerticalAlignment="Center"/>
+            <TextBox x:Name="ServerBox"
+                     Grid.Row="0"
+                     Grid.Column="1"
+                     Margin="0,8"
+                     VerticalContentAlignment="Center"
+                     ToolTip="Ví dụ: SERVERVH\SQL2017,49855"/>
+
+            <TextBlock Grid.Row="1"
+                       Text="Database"
+                       VerticalAlignment="Center"/>
+            <TextBox x:Name="DatabaseBox"
+                     Grid.Row="1"
+                     Grid.Column="1"
+                     Margin="0,8"
+                     VerticalContentAlignment="Center"/>
+
+            <TextBlock Grid.Row="2"
+                       Text="Username"
+                       VerticalAlignment="Center"/>
+            <TextBox x:Name="UsernameBox"
+                     Grid.Row="2"
+                     Grid.Column="1"
+                     Margin="0,8"
+                     VerticalContentAlignment="Center"/>
+
+            <TextBlock Grid.Row="3"
+                       Text="Password"
+                       VerticalAlignment="Center"/>
+            <PasswordBox x:Name="PasswordBox"
+                         Grid.Row="3"
+                         Grid.Column="1"
+                         Margin="0,8"
+                         VerticalContentAlignment="Center"/>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="TestButton" Content="Kiểm tra kết nối" Width="140" Height="36"
+                    Margin="0,0,8,0" Click="TestButton_Click"/>
+            <Button x:Name="SaveButton" Content="Lưu cấu hình" Width="120" Height="36"
+                    IsEnabled="False" Click="SaveButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

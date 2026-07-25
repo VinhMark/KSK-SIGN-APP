@@ -1,0 +1,240 @@
+<UserControl x:Class="GKSKLaiXe.Windows.XmlDataView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <DockPanel>
+
+        <Border DockPanel.Dock="Top"
+                Background="White"
+                BorderBrush="{StaticResource BorderSoft}"
+                BorderThickness="0,0,0,1"
+                Padding="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <WrapPanel Grid.Column="0">
+
+
+                <TextBlock Text="Kiểu lọc:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+
+                <ComboBox x:Name="FilterTypeCombo"
+                          Width="165"
+                          SelectedIndex="1"
+                          SelectionChanged="FilterTypeCombo_SelectionChanged"
+                          Margin="0,0,14,0">
+                    <ComboBoxItem Content="Ngày" Tag="DAY"/>
+                    <ComboBoxItem Content="Từ ngày - Đến ngày" Tag="RANGE"/>
+                    <ComboBoxItem Content="Tháng" Tag="MONTH"/>
+                    <ComboBoxItem Content="Quý" Tag="QUARTER"/>
+                    <ComboBoxItem Content="Năm" Tag="YEAR"/>
+                </ComboBox>
+
+                <StackPanel x:Name="DayPanel"
+                            Orientation="Horizontal"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Ngày:"
+                               VerticalAlignment="Center"/>
+                    <DatePicker x:Name="DayPicker"
+                                Width="125"
+                                Margin="6,0,14,0"/>
+                </StackPanel>
+
+                <StackPanel x:Name="RangePanel"
+                            Orientation="Horizontal">
+                    <TextBlock Text="Từ ngày:"
+                               VerticalAlignment="Center"/>
+                    <DatePicker x:Name="FromDatePicker"
+                                Width="125"
+                                Margin="6,0,10,0"/>
+                    <TextBlock Text="Đến ngày:"
+                               VerticalAlignment="Center"/>
+                    <DatePicker x:Name="ToDatePicker"
+                                Width="125"
+                                Margin="6,0,14,0"/>
+                </StackPanel>
+
+
+                <StackPanel x:Name="MonthPanel"
+                            Orientation="Horizontal"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Tháng:"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="MonthCombo"
+                              Width="80"
+                              Margin="6,0,10,0"/>
+                    <TextBlock Text="Năm:"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="MonthYearCombo"
+                              Width="90"
+                              Margin="6,0,14,0"/>
+                </StackPanel>
+
+                <StackPanel x:Name="QuarterPanel"
+                            Orientation="Horizontal"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Quý:"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="QuarterCombo"
+                              Width="70"
+                              SelectedIndex="0"
+                              Margin="6,0,10,0">
+                        <ComboBoxItem Content="1"/>
+                        <ComboBoxItem Content="2"/>
+                        <ComboBoxItem Content="3"/>
+                        <ComboBoxItem Content="4"/>
+                    </ComboBox>
+                    <TextBlock Text="Năm:"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="QuarterYearCombo"
+                              Width="90"
+                              Margin="6,0,14,0"/>
+                </StackPanel>
+
+                <StackPanel x:Name="YearPanel"
+                            Orientation="Horizontal"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Năm:"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="YearCombo"
+                              Width="90"
+                              Margin="6,0,14,0"/>
+                </StackPanel>
+
+                <TextBlock Text="MA_LK:"
+                           VerticalAlignment="Center"/>
+
+                <TextBox x:Name="MaLkBox"
+                         Width="170"
+                         Height="28"
+                         Margin="6,0,10,0"/>
+
+                <Button x:Name="LoadXmlButton"
+                        Style="{StaticResource PrimaryButton}"
+                        Padding="14,7"
+                        Click="LoadData_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource ButtonIcon}" Text="&#xE895;"/>
+                        <TextBlock Text="Lấy dữ liệu"/>
+                    </StackPanel>
+                </Button>
+            
+                </WrapPanel>
+
+                <Button Grid.Column="1"
+                        Style="{StaticResource SecondaryButton}"
+                        Content="Xuất Excel"
+                        Padding="14,7"
+                        Margin="12,0,0,0"
+                        VerticalAlignment="Center"
+                        Click="ExportExcel_Click"/>
+            </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom"
+                Background="White"
+                BorderBrush="{StaticResource BorderSoft}"
+                BorderThickness="0,1,0,0"
+                Padding="12,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Tổng HS"
+                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="12"/>
+                    <TextBlock x:Name="TotalRecordsText"
+                               Text="0"
+                               FontSize="17"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Tổng Chi"
+                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="12"/>
+                    <TextBlock x:Name="TotalCostText"
+                               Text="0"
+                               FontSize="17"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="BHTT"
+                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="12"/>
+                    <TextBlock x:Name="BhytPayText"
+                               Text="0"
+                               FontSize="17"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="6">
+                    <TextBlock Text="BNTT"
+                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="12"/>
+                    <TextBlock x:Name="PatientPayText"
+                               Text="0"
+                               FontSize="17"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+
+                <TextBlock x:Name="XmlStatusText"
+                           Grid.Column="7"
+                           Text="Sẵn sàng."
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondary}"/>
+            </Grid>
+        </Border>
+
+        <TabControl Margin="12" Background="White">
+            <TabItem Header="XML1">
+                <DataGrid x:Name="Xml1Grid"
+                          AutoGenerateColumns="True"
+                          MaxColumnWidth="300"
+                          IsReadOnly="True"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          VerticalContentAlignment="Center"
+                          AutoGeneratingColumn="XmlGrid_AutoGeneratingColumn"/>
+            </TabItem>
+
+            <TabItem Header="XML2">
+                <DataGrid x:Name="Xml2Grid"
+                          AutoGenerateColumns="True"
+                          MaxColumnWidth="300"
+                          IsReadOnly="True"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          VerticalContentAlignment="Center"
+                          AutoGeneratingColumn="XmlGrid_AutoGeneratingColumn"/>
+            </TabItem>
+
+            <TabItem Header="XML3">
+                <DataGrid x:Name="Xml3Grid"
+                          AutoGenerateColumns="True"
+                          MaxColumnWidth="300"
+                          IsReadOnly="True"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          VerticalContentAlignment="Center"
+                          AutoGeneratingColumn="XmlGrid_AutoGeneratingColumn"/>
+            </TabItem>
+        </TabControl>
+
+    </DockPanel>
+</UserControl>

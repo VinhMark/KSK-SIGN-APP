@@ -1,0 +1,84 @@
+<Window x:Class="KSKSigningManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KSK Signing Server - Cấu hình nhanh" Height="690" Width="760"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
+        Background="#F4F7FB">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,18">
+            <TextBlock Text="KSK SIGNING SERVER" FontSize="27" FontWeight="Bold" Foreground="#145DA0"/>
+            <TextBlock Text="Cấu hình MISA-CA qua mạng LAN" FontSize="15" Foreground="#52606D" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="White" CornerRadius="12" Padding="22" BorderBrush="#D8E2EE" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="20"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="14"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Chứng thư MISA-CA" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <DockPanel Grid.Column="1">
+                    <Button Content="Quét lại" DockPanel.Dock="Right" Width="90" Margin="10,0,0,0" Click="RefreshCertificates_Click"/>
+                    <ComboBox x:Name="CertificateCombo" Height="34" DisplayMemberPath="DisplayName" SelectionChanged="CertificateCombo_SelectionChanged"/>
+                </DockPanel>
+
+                <TextBlock Grid.Row="2" Text="Thumbprint" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="ThumbprintText" Height="34" IsReadOnly="True" Background="#F7F9FC"/>
+
+                <TextBlock Grid.Row="4" Text="PIN Token" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <PasswordBox Grid.Row="4" Grid.Column="1" x:Name="PinBox" Height="34"/>
+
+                <TextBlock Grid.Row="6" Text="Ghi nhớ PIN" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <CheckBox Grid.Row="6" Grid.Column="1" x:Name="RememberPinCheck" Content="Mã hóa bằng Windows DPAPI trên máy này" IsChecked="True" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="8" Text="Cổng Server" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBox Grid.Row="8" Grid.Column="1" x:Name="PortText" Height="34" Text="7443"/>
+
+                <TextBlock Grid.Row="10" Text="API Key" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <DockPanel Grid.Row="10" Grid.Column="1">
+                    <Button Content="Tạo mới" DockPanel.Dock="Right" Width="90" Margin="10,0,0,0" Click="GenerateApiKey_Click"/>
+                    <TextBox x:Name="ApiKeyText" Height="34"/>
+                </DockPanel>
+
+                <TextBlock Grid.Row="12" Text="Cho phép truy cập" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <ComboBox Grid.Row="12" Grid.Column="1" x:Name="AccessModeCombo" Height="34" SelectedIndex="0">
+                    <ComboBoxItem Content="Tất cả máy trong mạng LAN hiện tại" Tag="LAN"/>
+                    <ComboBoxItem Content="Chỉ máy này" Tag="LOCAL"/>
+                    <ComboBoxItem Content="Danh sách IP tùy chỉnh" Tag="CUSTOM"/>
+                </ComboBox>
+
+                <TextBlock Grid.Row="14" Text="IP tùy chỉnh" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBox Grid.Row="14" Grid.Column="1" x:Name="AllowedIpsText" Height="34" Text="192.168.1.0/24" ToolTip="Phân cách bằng dấu phẩy"/>
+
+                <StackPanel Grid.Row="16" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="LƯU CẤU HÌNH" Width="150" Height="42" Margin="0,0,12,0" Click="Save_Click"/>
+                    <Button Content="KHỞI ĐỘNG SERVER" Width="175" Height="42" Margin="0,0,12,0" Click="StartServer_Click"/>
+                    <Button Content="DỪNG SERVER" Width="130" Height="42" Click="StopServer_Click"/>
+                </StackPanel>
+
+                <Border Grid.Row="18" Grid.ColumnSpan="2" Background="#EEF6FF" CornerRadius="8" Padding="14">
+                    <StackPanel>
+                        <TextBlock x:Name="StatusText" Text="Trạng thái: Chưa khởi động" FontWeight="Bold" Foreground="#145DA0"/>
+                        <TextBlock x:Name="AddressText" Text="Địa chỉ LAN: đang xác định..." Margin="0,5,0,0"/>
+                        <TextBlock Text="Máy con chỉ cần IP, cổng và API Key hiển thị tại đây." Margin="0,5,0,0" Foreground="#52606D"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="2" Text="Lưu ý: lần đầu hãy chạy ứng dụng bằng quyền Administrator để tự mở cổng Firewall." Foreground="#7A4E00" Margin="0,14,0,0"/>
+    </Grid>
+</Window>

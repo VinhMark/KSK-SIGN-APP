@@ -1,0 +1,204 @@
+<Window x:Class="GKSKLaiXe.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cấu hình"
+        Height="610"
+        Width="650"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Grid Margin="18">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="55"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0" Style="{StaticResource PopupTabControlStyle}">
+
+            <!-- TAB SQL -->
+            
+
+            <!-- TAB LIÊN THÔNG -->
+            <TabItem Header="Liên thông" Style="{StaticResource PopupTabItemStyle}">
+
+                <Grid Margin="22">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="58"/>
+                        <RowDefinition Height="58"/>
+                        <RowDefinition Height="58"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Text="API URL"
+                               VerticalAlignment="Center"/>
+
+                    <TextBox x:Name="ApiUrlBox"
+                             Grid.Row="0"
+                             Grid.Column="1"
+                             Margin="0,8"/>
+
+                    <TextBlock Grid.Row="1"
+                               Text="Username"
+                               VerticalAlignment="Center"/>
+
+                    <TextBox x:Name="ApiUsernameBox"
+                             Grid.Row="1"
+                             Grid.Column="1"
+                             Margin="0,8"/>
+
+                    <TextBlock Grid.Row="2"
+                               Text="Password"
+                               VerticalAlignment="Center"/>
+
+                    <PasswordBox x:Name="ApiPasswordBox"
+                                 Grid.Row="2"
+                                 Grid.Column="1"
+                                 Margin="0,8"/>
+                </Grid>
+            </TabItem>
+
+
+            <TabItem Header="Ký số" Style="{StaticResource PopupTabItemStyle}">
+                <Grid Margin="22">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="54"/>
+                        <RowDefinition Height="54"/>
+                        <RowDefinition Height="58"/>
+                        <RowDefinition Height="58"/>
+                        <RowDefinition Height="58"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Phương thức ký" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <RadioButton x:Name="DirectSigningRadio" Content="Ký trực tiếp bằng USB Token" GroupName="SigningMode" Margin="0,0,24,0" Checked="SigningMode_Changed"/>
+                        <RadioButton x:Name="LanSigningRadio" Content="Ký qua mạng LAN" GroupName="SigningMode" Checked="SigningMode_Changed"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Text="Địa chỉ Server" VerticalAlignment="Center"/>
+                    <TextBox x:Name="SigningServerUrlBox" Grid.Row="1" Grid.Column="1" Margin="0,8" ToolTip="Ví dụ: http://192.168.1.10:7443"/>
+
+                    <TextBlock Grid.Row="2" Text="API Key" VerticalAlignment="Center"/>
+                    <PasswordBox x:Name="SigningApiKeyBox" Grid.Row="2" Grid.Column="1" Margin="0,8"/>
+
+                    <Button x:Name="TestSigningButton" Grid.Row="3" Grid.Column="1" Content="Kiểm tra kết nối Signing Server" Width="235" Height="34" HorizontalAlignment="Left" Click="TestSigning_Click"/>
+
+                    <TextBlock x:Name="SigningTestStatus" Grid.Row="4" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center"/>
+
+                    <Border Grid.Row="5" Grid.ColumnSpan="2" Background="#FFF7ED" BorderBrush="#FDBA74" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0">
+                        <TextBlock TextWrapping="Wrap" Text="Ký trực tiếp: USB Token phải cắm trên máy đang chạy GKSK. Ký qua LAN: USB Token chỉ cắm trên máy Signing Server; máy này cần địa chỉ Server và API Key."/>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Mặc định KSK Lái xe" Style="{StaticResource PopupTabItemStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Text="Mã CSKCB"
+                                   VerticalAlignment="Center"/>
+                        <TextBox x:Name="DefaultHospitalCodeBox"
+                                 Grid.Row="0"
+                                 Grid.Column="1"
+                                 Margin="0,6"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Cơ sở KCB"
+                                   VerticalAlignment="Center"/>
+                        <TextBox x:Name="DefaultHospitalNameBox"
+                                 Grid.Row="1"
+                                 Grid.Column="1"
+                                 Margin="0,6"/>
+
+                        <TextBlock Grid.Row="2"
+                                   Text="Ma túy"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox x:Name="DefaultDrugCombo"
+                                  Grid.Row="2"
+                                  Grid.Column="1"
+                                  Margin="0,6"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="0 : Âm tính" Tag="0"/>
+                            <ComboBoxItem Content="1 : Dương tính" Tag="1"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="3"
+                                   Text="Bác sĩ kết luận"
+                                   VerticalAlignment="Center"/>
+                        <TextBox x:Name="DefaultDoctorBox"
+                                 Grid.Row="3"
+                                 Grid.Column="1"
+                                 Margin="0,6"/>
+
+                        <TextBlock Grid.Row="4"
+                                   Text="Kết luận"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox x:Name="DefaultConclusionCombo"
+                                  Grid.Row="4"
+                                  Grid.Column="1"
+                                  Margin="0,6"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="A0-1 : Đủ điều kiện sức khỏe lái xe" Tag="A0-1"/>
+                            <ComboBoxItem Content="A0-2 : Không đủ điều kiện sức khỏe lái xe" Tag="A0-2"/>
+                            <ComboBoxItem Content="A0-3 : Đạt tiêu chuẩn nhưng yêu cầu khám lại" Tag="A0-3"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="5"
+                                   Text="STATE"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox x:Name="DefaultStateCombo"
+                                  Grid.Row="5"
+                                  Grid.Column="1"
+                                  Margin="0,6"
+                                  SelectedValuePath="Content">
+                            <ComboBoxItem Content="ADD"/>
+                            <ComboBoxItem Content="EDIT"/>
+                        </ComboBox>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+        </TabControl>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+
+            <Button Style="{StaticResource SecondaryButton}" Content="Hủy"
+                    Width="95"
+                    Height="34"
+                    Margin="0,0,8,0"
+                    Click="Cancel_Click"/>
+
+            <Button Style="{StaticResource PrimaryButton}" Content="Lưu cấu hình"
+                    Width="130"
+                    Height="34"
+                    Click="Save_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
