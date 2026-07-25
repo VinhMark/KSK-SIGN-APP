@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
@@ -136,15 +136,41 @@ public partial class MainWindow : Window
 
     private static string FindServerDirectory()
     {
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "KSKSigningServer"),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "KSKSigningServer")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "KSKSigningServer")),
-            Path.Combine(Directory.GetCurrentDirectory(), "KSKSigningServer")
-        };
+        var searched = new List<string>();
 
-        return candidates.FirstOrDefault(Directory.Exists) ?? Path.Combine(AppContext.BaseDirectory, "KSKSigningServer");
+        static IEnumerable<string> WalkParents(string startPath)
+        {
+            var current = new DirectoryInfo(Path.GetFullPath(startPath));
+            while (current is not null)
+            {
+                yield return current.FullName;
+                current = current.Parent;
+            }
+        }
+
+        var roots = WalkParents(AppContext.BaseDirectory)
+            .Concat(WalkParents(Directory.GetCurrentDirectory()))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in roots)
+        {
+            var candidate = Path.Combine(root, "KSKSigningServer");
+            searched.Add(candidate);
+
+            if (File.Exists(Path.Combine(candidate, "KSKSigningServer.exe")) ||
+                File.Exists(Path.Combine(candidate, "KSKSigningServer.dll")) ||
+                File.Exists(Path.Combine(candidate, "KSKSigningServer.csproj")))
+            {
+                return candidate;
+            }
+        }
+
+        var bundledCandidate = Path.Combine(AppContext.BaseDirectory, "KSKSigningServer");
+        searched.Add(bundledCandidate);
+
+        throw new DirectoryNotFoundException(
+            "Không tìm thấy thư mục KSKSigningServer.`n`nĐã kiểm tra:`n- " +
+            string.Join("`n- ", searched.Distinct(StringComparer.OrdinalIgnoreCase)));
     }
 
     private void RefreshCertificates_Click(object sender, RoutedEventArgs e) => RefreshCertificates();
@@ -197,8 +223,30 @@ public partial class MainWindow : Window
 
     private void GenerateApiKey_Click(object sender, RoutedEventArgs e)
     {
-        ApiKeyBox.Password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        ApiKeyText.Text = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         UpdateAddress();
+    }
+    private void CopyApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        var apiKey = ApiKeyText.Text?.Trim() ?? "";
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            WpfMessageBox.Show(
+                "API Key đang trống.",
+                "Không thể sao chép",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        System.Windows.Clipboard.SetText(apiKey);
+        WriteLog("INFO", "Đã sao chép API Key vào Clipboard.");
+        WpfMessageBox.Show(
+            "Đã sao chép API Key.",
+            "Thành công",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void LoadServerSettings()
@@ -216,13 +264,13 @@ public partial class MainWindow : Window
             var urls = s.TryGetProperty("Urls", out var u) ? u.GetString() ?? "" : "";
             if (Uri.TryCreate(urls.Replace("0.0.0.0", "127.0.0.1"), UriKind.Absolute, out var uri)) PortText.Text = uri.Port.ToString();
 
-            ApiKeyBox.Password = s.TryGetProperty("ApiKey", out var a) ? a.GetString() ?? "" : "";
+            ApiKeyText.Text = s.TryGetProperty("ApiKey", out var a) ? a.GetString() ?? "" : "";
             var thumb = s.TryGetProperty("CertificateThumbprint", out var t) ? t.GetString() ?? "" : "";
             ThumbprintText.Text = thumb;
             var match = CertificateCombo.Items.Cast<CertificateItem>().FirstOrDefault(x => x.Thumbprint.Equals(thumb, StringComparison.OrdinalIgnoreCase));
             if (match is not null) CertificateCombo.SelectedItem = match;
 
-            if (string.IsNullOrWhiteSpace(ApiKeyBox.Password) || ApiKeyBox.Password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(ApiKeyText.Text) || ApiKeyText.Text.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
                 GenerateApiKey_Click(this, new RoutedEventArgs());
 
             WriteLog("INFO", "Đã tải cấu hình Signing Server.");
@@ -270,7 +318,7 @@ public partial class MainWindow : Window
     {
         if (!int.TryParse(PortText.Text, out var port) || port is < 1024 or > 65535)
             throw new InvalidOperationException("Cổng Server phải từ 1024 đến 65535.");
-        if (string.IsNullOrWhiteSpace(ApiKeyBox.Password) || ApiKeyBox.Password.Length < 24)
+        if (string.IsNullOrWhiteSpace(ApiKeyText.Text) || ApiKeyText.Text.Length < 24)
             throw new InvalidOperationException("API Key phải có ít nhất 24 ký tự.");
         if (string.IsNullOrWhiteSpace(ThumbprintText.Text))
             throw new InvalidOperationException("Chưa chọn chứng thư MISA-CA.");
@@ -296,7 +344,7 @@ public partial class MainWindow : Window
             SigningServer = new
             {
                 Urls = $"http://0.0.0.0:{port}",
-                ApiKey = ApiKeyBox.Password.Trim(),
+                ApiKey = ApiKeyText.Text.Trim(),
                 AllowedIps = ResolveAllowedIps(),
                 CertificateThumbprint = ThumbprintText.Text.Trim(),
                 CertificateSubjectContains = "MISA-CA",
@@ -365,15 +413,32 @@ public partial class MainWindow : Window
             WriteLog("INFO", $"Đang khởi động Signing Server tại cổng {port}.");
 
             var exe = Path.Combine(_serverDir, "KSKSigningServer.exe");
+            var dll = Path.Combine(_serverDir, "KSKSigningServer.dll");
+            var project = Path.Combine(_serverDir, "KSKSigningServer.csproj");
+
             ProcessStartInfo psi;
             if (File.Exists(exe))
             {
-                psi = new ProcessStartInfo(exe) { WorkingDirectory = _serverDir, UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden };
+                psi = new ProcessStartInfo(exe)
+                {
+                    WorkingDirectory = _serverDir,
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
             }
-            else
+            else if (File.Exists(dll))
             {
-                var project = Path.Combine(_serverDir, "KSKSigningServer.csproj");
-                if (!File.Exists(project)) throw new FileNotFoundException("Không tìm thấy KSKSigningServer.exe hoặc project server.", project);
+                psi = new ProcessStartInfo("dotnet", $"\"{dll}\"")
+                {
+                    WorkingDirectory = _serverDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+            }
+            else if (File.Exists(project))
+            {
                 psi = new ProcessStartInfo("dotnet", $"run --project \"{project}\"")
                 {
                     WorkingDirectory = _serverDir,
@@ -382,6 +447,12 @@ public partial class MainWindow : Window
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
+            }
+            else
+            {
+                throw new FileNotFoundException(
+                    "Đã tìm thấy thư mục server nhưng không có KSKSigningServer.exe, KSKSigningServer.dll hoặc KSKSigningServer.csproj.",
+                    _serverDir);
             }
 
             _serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -396,11 +467,11 @@ public partial class MainWindow : Window
                 _serverProcess.BeginErrorReadLine();
             }
 
-            await WarmUpTokenSessionAsync();
+            await WaitForServerReadyAsync();
             SetServerState(ServerUiState.Running, "Đang hoạt động");
-            WriteLog("SUCCESS", "Signing Server đã hoạt động và phiên Token sẵn sàng.");
+            WriteLog("SUCCESS", "Signing Server đã hoạt động. Token chưa được kích hoạt; Client sẽ nhập PIN khi cần.");
             if (showSuccessDialog)
-                WpfMessageBox.Show("Signing Server đã khởi động và kiểm tra Token thành công.", "Server sẵn sàng", MessageBoxButton.OK, MessageBoxImage.Information);
+                WpfMessageBox.Show("Signing Server đã khởi động. Token sẽ chỉ được kích hoạt khi Client gửi PIN hợp lệ.", "Server sẵn sàng", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -423,35 +494,35 @@ public partial class MainWindow : Window
         });
     }
 
-    private async Task WarmUpTokenSessionAsync()
+    private async Task WaitForServerReadyAsync()
     {
-        if (!int.TryParse(PortText.Text, out var port)) throw new InvalidOperationException("Cổng Server không hợp lệ.");
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(90) };
-        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", ApiKeyBox.Password.Trim());
-        var baseUrl = $"http://127.0.0.1:{port}";
+        if (!int.TryParse(PortText.Text, out var port))
+            throw new InvalidOperationException("Cổng Server không hợp lệ.");
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", ApiKeyText.Text.Trim());
+        var statusUrl = $"http://127.0.0.1:{port}/api/status";
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= 30; attempt++)
         {
             try
             {
-                using var statusResponse = await client.GetAsync(baseUrl + "/api/status");
+                using var statusResponse = await client.GetAsync(statusUrl);
                 if (statusResponse.IsSuccessStatusCode)
-                {
-                    using var warmupContent = new StringContent("{}", Encoding.UTF8, "application/json");
-                    using var warmupResponse = await client.PostAsync(baseUrl + "/api/test-token", warmupContent);
-                    var body = await warmupResponse.Content.ReadAsStringAsync();
-                    if (!warmupResponse.IsSuccessStatusCode) throw new InvalidOperationException(ReadServerMessage(body, warmupResponse.ReasonPhrase));
                     return;
-                }
+
                 lastError = new InvalidOperationException($"Server trả HTTP {(int)statusResponse.StatusCode}.");
             }
             catch (HttpRequestException ex) { lastError = ex; }
             catch (TaskCanceledException ex) { lastError = ex; }
+
             await Task.Delay(500);
         }
 
-        throw new InvalidOperationException("Không kết nối được Signing Server sau 15 giây. " + (lastError?.Message ?? "Không rõ nguyên nhân."));
+        throw new InvalidOperationException(
+            "Không kết nối được Signing Server sau 15 giây. " +
+            (lastError?.Message ?? "Không rõ nguyên nhân."));
     }
 
     private static string ReadServerMessage(string json, string? fallback)
@@ -625,3 +696,5 @@ public partial class MainWindow : Window
         Error
     }
 }
+
+

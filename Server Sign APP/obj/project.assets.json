@@ -69,11 +69,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Project\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+      "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
       "projectName": "KSKSigningManager",
-      "projectPath": "D:\\Project\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+      "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "D:\\Project\\KSK-SIGN-APP\\Server Sign APP\\obj\\",
+      "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",

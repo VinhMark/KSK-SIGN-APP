@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -47,18 +47,52 @@ app.Use(async (ctx, next) =>
 
 app.MapGet("/", () => Results.Text("KSK Signing Server v7 is running."));
 
-app.MapGet("/api/status", (CertificateService certs, ServerMetrics metrics, SigningQueue queue) =>
+app.MapGet("/api/status", (CertificateService certs, ServerMetrics metrics, SigningQueue queue,
+    SigningKeySession keySession, TokenPinService pinService) =>
 {
     var cert = certs.FindCertificate();
     return Results.Ok(new
     {
         success = cert is not null,
         serverTime = DateTimeOffset.Now,
-        version = "7.0",
+        version = "7.1",
+        pinConfigured = pinService.HasAnyPin,
+        tokenActivated = keySession.IsActivated,
         queueLength = queue.WaitingCount,
         metrics = metrics.Snapshot(),
         certificate = cert is null ? null : CertificateInfo.From(cert)
     });
+});
+
+app.MapPost("/api/activate-token", (ActivateTokenRequest request, SigningKeySession keySession,
+    TokenPinService pinService) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Pin))
+        return Results.BadRequest(new { success = false, message = "PIN trống." });
+
+    try
+    {
+        pinService.SetRuntimePin(request.Pin);
+        keySession.ResetAndActivate();
+        return Results.Ok(new
+        {
+            success = true,
+            message = "Đã kích hoạt Token từ Client. Server đang giữ phiên khóa để ký qua LAN.",
+            tokenActivated = true,
+            certificate = CertificateInfo.From(keySession.Certificate)
+        });
+    }
+    catch (Exception ex)
+    {
+        keySession.Deactivate();
+        pinService.ClearRuntimePin();
+        return Results.BadRequest(new
+        {
+            success = false,
+            message = "Không kích hoạt được Token: " + ex.Message,
+            tokenActivated = false
+        });
+    }
 });
 
 app.MapPost("/api/test-token", async (SigningKeySession keySession) =>
@@ -93,6 +127,14 @@ app.MapPost("/api/sign-xml", async (HttpContext ctx, SigningKeySession keySessio
 
     if (request is null || string.IsNullOrWhiteSpace(request.Xml))
         return Results.BadRequest(new { success = false, message = "Thiếu XML cần ký." });
+
+    if (!keySession.IsActivated)
+        return Results.Json(new
+        {
+            success = false,
+            message = "Token chưa được kích hoạt. Hãy nhập PIN tại ứng dụng Client bằng API Key hợp lệ.",
+            tokenActivated = false
+        }, statusCode: StatusCodes.Status409Conflict);
 
     var stopwatch = Stopwatch.StartNew();
     await queue.EnterAsync(cancellationToken);
@@ -198,6 +240,7 @@ public sealed record SignXmlRequest(string Xml, string? Profile, string? RecordI
 public sealed record SignXmlResponse(bool Success, string Message, string? SignedXml, string? SignedBase64,
     string? CertificateThumbprint, long ElapsedMilliseconds);
 public sealed record ProtectPinRequest(string Pin);
+public sealed record ActivateTokenRequest(string Pin);
 
 public sealed record CertificateInfo(string Subject, string Issuer, string Thumbprint, string SerialNumber,
     DateTime NotBefore, DateTime NotAfter, bool HasPrivateKey)
@@ -230,36 +273,89 @@ public sealed class CertificateService(SigningServerOptions options)
     private static string Normalize(string? value) => (value ?? string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
 }
 
-public sealed class TokenPinService(SigningServerOptions options)
+public sealed class TokenPinService(SigningServerOptions options, ILogger<TokenPinService> logger)
 {
-    public void TryApplyConfiguredPin(RSA rsa)
+    private const int NcryptSilentFlag = 0x00000040;
+    private readonly object _sync = new();
+    private byte[]? _runtimePinUtf8;
+
+    // Chế độ Client Activation: PIN lưu cũ trong appsettings không được dùng để mở Token.
+    public bool HasConfiguredPin => false;
+    public bool HasRuntimePin
     {
-        if (string.IsNullOrWhiteSpace(options.EncryptedPin)) return;
-        if (rsa is not RSACng rsaCng) return;
+        get { lock (_sync) return _runtimePinUtf8 is { Length: > 0 }; }
+    }
+    public bool HasAnyPin => HasRuntimePin || HasConfiguredPin;
 
-        var pin = Unprotect(options.EncryptedPin);
-        if (string.IsNullOrEmpty(pin)) return;
+    public void SetRuntimePin(string pin)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            throw new ArgumentException("PIN trống.", nameof(pin));
 
-        var bytes = Encoding.Unicode.GetBytes(pin + "\0");
-        var status = NativeMethods.NCryptSetProperty(rsaCng.Key.Handle, "SmartCardPin", bytes, bytes.Length, 0);
-        CryptographicOperations.ZeroMemory(bytes);
-        if (status != 0)
-            throw new CryptographicException($"Không thể nạp PIN cho MISA-CA (NCrypt lỗi 0x{status:X8}).");
+        var replacement = Encoding.UTF8.GetBytes(pin);
+        lock (_sync)
+        {
+            if (_runtimePinUtf8 is not null)
+                CryptographicOperations.ZeroMemory(_runtimePinUtf8);
+            _runtimePinUtf8 = replacement;
+        }
+        logger.LogInformation("Đã nhận PIN tạm thời từ Client và giữ trong RAM của Server.");
     }
 
-    private static string Unprotect(string encrypted)
+    public void ClearRuntimePin()
     {
+        lock (_sync)
+        {
+            if (_runtimePinUtf8 is not null)
+                CryptographicOperations.ZeroMemory(_runtimePinUtf8);
+            _runtimePinUtf8 = null;
+        }
+    }
+
+    public void TryApplyConfiguredPin(RSA rsa)
+    {
+        var pin = GetPin();
+        if (pin is null) return;
+
         try
         {
-            var protectedBytes = Convert.FromBase64String(encrypted);
-            var plain = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
-            try { return Encoding.UTF8.GetString(plain); }
-            finally { CryptographicOperations.ZeroMemory(plain); }
+            if (rsa is not RSACng rsaCng)
+                throw new NotSupportedException(
+                    $"Private key hiện là {rsa.GetType().Name}, không phải RSACng nên không thể nạp PIN tự động bằng NCrypt.");
+
+            var bytes = Encoding.Unicode.GetBytes(pin + "\0");
+            try
+            {
+                var status = NativeMethods.NCryptSetProperty(
+                    rsaCng.Key.Handle, "SmartCardPin", bytes, bytes.Length, NcryptSilentFlag);
+
+                if (status != 0)
+                    throw new CryptographicException(
+                        $"MISA-CA không nhận PIN tự động (NCrypt lỗi 0x{status:X8}).");
+
+                logger.LogInformation("Đã nạp PIN Token vào phiên khóa NCrypt ở chế độ silent.");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(bytes);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            throw new InvalidOperationException("Không giải mã được PIN. Hãy tạo lại PIN bằng đúng tài khoản Windows chạy Server.", ex);
+            // Chuỗi tạm không thể zero trực tiếp trong .NET; PIN gốc vẫn chỉ được lưu ở mảng byte RAM.
+            pin = null;
         }
+    }
+
+    private string? GetPin()
+    {
+        lock (_sync)
+        {
+            if (_runtimePinUtf8 is { Length: > 0 })
+                return Encoding.UTF8.GetString(_runtimePinUtf8);
+        }
+
+        return null;
     }
 }
 
@@ -277,6 +373,12 @@ public sealed class SigningKeySession : IDisposable
     private readonly object _sync = new();
     private X509Certificate2? _certificate;
     private RSA? _privateKey;
+    private bool _activated;
+
+    public bool IsActivated
+    {
+        get { lock (_sync) return _activated && _certificate is not null && _privateKey is not null; }
+    }
 
     public SigningKeySession(CertificateService certificates, TokenPinService pinService)
     {
@@ -299,6 +401,30 @@ public sealed class SigningKeySession : IDisposable
         {
             EnsureOpened();
             return _privateKey!;
+        }
+    }
+
+    public void ResetAndActivate()
+    {
+        lock (_sync)
+        {
+            ResetKeySession();
+            EnsureOpened();
+            _pinService.TryApplyConfiguredPin(_privateKey!);
+            _ = _privateKey!.SignData(
+                Encoding.UTF8.GetBytes("KSK_TOKEN_ACTIVATE"),
+                HashAlgorithmName.SHA256,
+                RSASignaturePadding.Pkcs1);
+            _activated = true;
+        }
+    }
+
+    public void Deactivate()
+    {
+        lock (_sync)
+        {
+            _activated = false;
+            ResetKeySession();
         }
     }
 
@@ -328,18 +454,30 @@ public sealed class SigningKeySession : IDisposable
             {
                 try
                 {
+                    // Một số KSP làm hết phiên đăng nhập trên handle cũ.
+                    // Đóng và mở lại private key, sau đó nạp PIN rồi thử đúng một lần.
+                    ResetKeySession();
+                    EnsureOpened();
                     _pinService.TryApplyConfiguredPin(_privateKey!);
                     return operation(_privateKey!);
                 }
                 catch (Exception retryError)
                 {
                     throw new CryptographicException(
-                        "Phiên xác thực Token đã hết hoặc MISA-CA không chấp nhận nạp lại PIN tự động. " +
-                        "Server đã nạp lại PIN và thử ký lại 1 lần nhưng không thành công.",
+                        "Không thể ký ở chế độ không hiện hộp thoại PIN. " +
+                        "Server đã mở lại khóa, nạp PIN bằng NCrypt ở chế độ silent và thử lại nhưng driver Token từ chối.",
                         new AggregateException(firstError, retryError));
                 }
             }
         }
+    }
+
+    private void ResetKeySession()
+    {
+        _privateKey?.Dispose();
+        _certificate?.Dispose();
+        _privateKey = null;
+        _certificate = null;
     }
 
     private void EnsureOpened()
@@ -362,11 +500,20 @@ public sealed class SigningKeySession : IDisposable
     {
         lock (_sync)
         {
-            _privateKey?.Dispose();
-            _certificate?.Dispose();
-            _privateKey = null;
-            _certificate = null;
+            _activated = false;
+            ResetKeySession();
         }
+    }
+}
+
+public sealed class TokenWarmupService(
+    ILogger<TokenWarmupService> logger) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation(
+            "Server đang chờ Client có API Key hợp lệ gửi PIN đến /api/activate-token. Token chưa được tự động kích hoạt trên máy Server.");
+        return Task.CompletedTask;
     }
 }
 

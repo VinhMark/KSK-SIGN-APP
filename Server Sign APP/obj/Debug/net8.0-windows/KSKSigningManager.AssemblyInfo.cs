@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KSKSigningManager")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d2d43387bf9c869c4c1f8bade9df0b3ed489236d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
 [assembly: System.Reflection.AssemblyProductAttribute("KSKSigningManager")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KSKSigningManager")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

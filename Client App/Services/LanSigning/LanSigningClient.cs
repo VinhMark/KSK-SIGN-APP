@@ -122,6 +122,42 @@ public sealed class LanSigningClient : IDisposable
         }
     }
 
+    public async Task<LanTokenActivationResult> ActivateTokenAsync(string pin,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            throw new LanSigningServerException(
+                "PIN Token đang trống.",
+                LanSigningErrorKind.InvalidConfiguration);
+
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                "api/activate-token",
+                new { pin },
+                JsonOptions(),
+                cancellationToken);
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var result = JsonSerializer.Deserialize<LanTokenActivationResult>(json, JsonOptions());
+            if (result is null)
+                throw new LanSigningServerException(
+                    "Signing Server trả dữ liệu kích hoạt không hợp lệ.",
+                    LanSigningErrorKind.InvalidResponse);
+
+            if (!response.IsSuccessStatusCode || !result.Success)
+                throw new LanSigningServerException(
+                    result.Message ?? $"Signing Server trả lỗi HTTP {(int)response.StatusCode}.",
+                    LanSigningErrorKind.ServerRejected);
+
+            return result;
+        }
+        catch (Exception ex) when (ex is not LanSigningServerException)
+        {
+            throw ConvertConnectionException(ex, cancellationToken);
+        }
+    }
+
     public async Task<LanSignResult> SignXmlAsync(string unsignedXml, string profile, string? recordId,
         string? userName, CancellationToken cancellationToken = default)
     {
@@ -214,6 +250,8 @@ public sealed class LanSigningStatus
     public bool Success { get; set; }
     public string? Version { get; set; }
     public int QueueLength { get; set; }
+    public bool PinConfigured { get; set; }
+    public bool TokenActivated { get; set; }
     public LanCertificateInfo? Certificate { get; set; }
 }
 
@@ -222,6 +260,14 @@ public sealed class LanCertificateInfo
     public string? Subject { get; set; }
     public string? Thumbprint { get; set; }
     public DateTime NotAfter { get; set; }
+}
+
+public sealed class LanTokenActivationResult
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public bool TokenActivated { get; set; }
+    public LanCertificateInfo? Certificate { get; set; }
 }
 
 public sealed class LanSignResult
