@@ -1,3 +1,5 @@
-using System.Windows;
 namespace KSKSigningManager;
-public partial class App : Application { }
+
+public partial class App : System.Windows.Application
+{
+}
