@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj": {}
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj": {}
   },
   "projects": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj": {
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj",
+        "projectUniqueName": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj",
         "projectName": "KSKSigningServer",
-        "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj",
+        "projectPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\obj\\",
+        "outputPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -53,6 +53,10 @@
               "target": "Package",
               "version": "[8.0.28, )",
               "autoReferenced": true
+            },
+            "Pkcs11Interop": {
+              "target": "Package",
+              "version": "[5.3.0, )"
             },
             "System.Security.Cryptography.ProtectedData": {
               "target": "Package",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj": {}
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj": {}
   },
   "projects": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj": {
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+        "projectUniqueName": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj",
         "projectName": "KSKSigningManager",
-        "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+        "projectPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\obj\\",
+        "outputPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -48,6 +48,10 @@
           "framework": "net8.0-windows7.0",
           "targetAlias": "net8.0-windows",
           "dependencies": {
+            "Pkcs11Interop": {
+              "target": "Package",
+              "version": "[5.3.0, )"
+            },
             "System.Security.Cryptography.ProtectedData": {
               "target": "Package",
               "version": "[8.0.0, )"

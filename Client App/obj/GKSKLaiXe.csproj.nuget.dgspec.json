@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\GKSKLaiXe.csproj": {}
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\GKSKLaiXe.csproj": {}
   },
   "projects": {
-    "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\GKSKLaiXe.csproj": {
+    "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\GKSKLaiXe.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\GKSKLaiXe.csproj",
+        "projectUniqueName": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\GKSKLaiXe.csproj",
         "projectName": "GKSKLaiXe",
-        "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\GKSKLaiXe.csproj",
+        "projectPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\GKSKLaiXe.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\obj\\",
+        "outputPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",

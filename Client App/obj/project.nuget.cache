@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "V3EjA1NgUl8=",
+  "dgSpecHash": "BvkCxl3NN90=",
   "success": true,
-  "projectFilePath": "D:\\Project\\v2\\KSK-SIGN-APP\\Client App\\GKSKLaiXe.csproj",
+  "projectFilePath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Client App\\GKSKLaiXe.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Admin\\.nuget\\packages\\azure.core\\1.38.0\\azure.core.1.38.0.nupkg.sha512",
     "C:\\Users\\Admin\\.nuget\\packages\\azure.identity\\1.11.4\\azure.identity.1.11.4.nupkg.sha512",

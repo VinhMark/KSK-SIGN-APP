@@ -8,6 +8,19 @@
           "build/Microsoft.NET.ILLink.Tasks.props": {}
         }
       },
+      "Pkcs11Interop/5.3.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "System.Formats.Asn1/8.0.0": {
         "type": "package",
         "compile": {
@@ -90,6 +103,19 @@
         "type": "package",
         "build": {
           "build/Microsoft.NET.ILLink.Tasks.props": {}
+        }
+      },
+      "Pkcs11Interop/5.3.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
         }
       },
       "System.Formats.Asn1/8.0.0": {
@@ -214,6 +240,28 @@
         "tools/net8.0/illink.dll",
         "tools/net8.0/illink.runtimeconfig.json",
         "useSharedDesignerContext.txt"
+      ]
+    },
+    "Pkcs11Interop/5.3.0": {
+      "sha512": "NnnD5CheO5d0ZTP/clt7XCjUy+FraxZv0hVP0GWSvry8jH4IrLifta04M9cjITr0EzKshG4qnFu2pdZZfhjttA==",
+      "type": "package",
+      "path": "pkcs11interop/5.3.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.txt",
+        "NOTICE.txt",
+        "Pkcs11Interop.png",
+        "lib/net20/Pkcs11Interop.dll",
+        "lib/net20/Pkcs11Interop.xml",
+        "lib/net40/Pkcs11Interop.dll",
+        "lib/net40/Pkcs11Interop.xml",
+        "lib/net45/Pkcs11Interop.dll",
+        "lib/net45/Pkcs11Interop.xml",
+        "lib/netstandard2.0/Pkcs11Interop.dll",
+        "lib/netstandard2.0/Pkcs11Interop.xml",
+        "pkcs11interop.5.3.0.nupkg.sha512",
+        "pkcs11interop.nuspec"
       ]
     },
     "System.Formats.Asn1/8.0.0": {
@@ -351,6 +399,7 @@
   "projectFileDependencyGroups": {
     "net8.0-windows": [
       "Microsoft.NET.ILLink.Tasks >= 8.0.28",
+      "Pkcs11Interop >= 5.3.0",
       "System.Security.Cryptography.ProtectedData >= 8.0.0",
       "System.Security.Cryptography.Xml >= 8.0.0"
     ]
@@ -361,11 +410,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj",
+      "projectUniqueName": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj",
       "projectName": "KSKSigningServer",
-      "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\KSKSigningServer.csproj",
+      "projectPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\KSKSigningServer.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\KSKSigningServer\\obj\\",
+      "outputPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\KSKSigningServer\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -407,6 +456,10 @@
             "target": "Package",
             "version": "[8.0.28, )",
             "autoReferenced": true
+          },
+          "Pkcs11Interop": {
+            "target": "Package",
+            "version": "[5.3.0, )"
           },
           "System.Security.Cryptography.ProtectedData": {
             "target": "Package",

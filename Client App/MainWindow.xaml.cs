@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
@@ -331,20 +331,32 @@ public partial class MainWindow : Window
     {
         CommitGridChanges();
 
+        var duplicateGroups = FindDuplicateSoGroups(_records);
+        var duplicateSos = duplicateGroups
+            .Select(x => x.So)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var sentMatches = _sentHistory.FindBySos(_records.Select(x => x.SO));
+        var sentSos = sentMatches
+            .Select(x => NormalizeSo(x.SO))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         int ok = 0;
         int fail = 0;
 
         foreach (var r in _records)
         {
-            var errors = _validator.Validate(r);
+            var errors = _validator.Validate(r).ToList();
+            var normalizedSo = NormalizeSo(r.SO);
 
-            r.ValidationStatus =
-                errors.Count == 0
-                    ? "Hợp lệ"
-                    : "Lỗi";
+            if (normalizedSo.Length > 0 && duplicateSos.Contains(normalizedSo))
+                errors.Add("SO bị trùng trong danh sách hiện tại");
 
-            r.ErrorMessage =
-                string.Join("; ", errors);
+            if (normalizedSo.Length > 0 && sentSos.Contains(normalizedSo))
+                errors.Add("SO đã tồn tại trong lịch sử hồ sơ gửi thành công");
+
+            r.ValidationStatus = errors.Count == 0 ? "Hợp lệ" : "Lỗi";
+            r.ErrorMessage = string.Join("; ", errors.Distinct(StringComparer.OrdinalIgnoreCase));
 
             if (errors.Count == 0)
                 ok++;
@@ -354,9 +366,103 @@ public partial class MainWindow : Window
 
         _recordsView?.Refresh();
 
-        StatusText.Text =
-            $"Kiểm tra xong: {ok} hợp lệ, {fail} lỗi.";
+        StatusText.Text = $"Kiểm tra xong: {ok} hợp lệ, {fail} lỗi.";
+
+        if (duplicateGroups.Count > 0 || sentMatches.Count > 0)
+        {
+            MessageBox.Show(
+                BuildSoCheckMessage(duplicateGroups, sentMatches),
+                "Kiểm tra trùng SO",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
+
+    private static string NormalizeSo(string? so)
+    {
+        return (so ?? "").Trim().ToUpperInvariant();
+    }
+
+    private static List<DuplicateSoGroup> FindDuplicateSoGroups(IEnumerable<GkskRecord> records)
+    {
+        return records
+            .Select((record, index) => new
+            {
+                Record = record,
+                DisplayIndex = index + 1,
+                So = NormalizeSo(record.SO)
+            })
+            .Where(x => x.So.Length > 0)
+            .GroupBy(x => x.So, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => new DuplicateSoGroup(
+                g.Key,
+                g.Select(x => x.DisplayIndex).ToList(),
+                g.Select(x => (x.Record.HOTEN ?? "").Trim())
+                    .Where(x => x.Length > 0)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()))
+            .OrderBy(x => x.So, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string BuildSoCheckMessage(
+        IReadOnlyList<DuplicateSoGroup> duplicateGroups,
+        IReadOnlyList<SentHistoryMatch> sentMatches)
+    {
+        var lines = new List<string>();
+
+        if (duplicateGroups.Count > 0)
+        {
+            lines.Add($"Phát hiện {duplicateGroups.Count} SO bị trùng trong danh sách:");
+            foreach (var item in duplicateGroups.Take(20))
+            {
+                var names = item.Names.Count > 0
+                    ? $" - {string.Join(", ", item.Names.Take(3))}"
+                    : "";
+                lines.Add($"• {item.So} | dòng {string.Join(", ", item.DisplayIndexes)}{names}");
+            }
+
+            if (duplicateGroups.Count > 20)
+                lines.Add($"• ... và {duplicateGroups.Count - 20} SO trùng khác.");
+        }
+
+        if (sentMatches.Count > 0)
+        {
+            if (lines.Count > 0)
+                lines.Add("");
+
+            var groupedSent = sentMatches
+                .GroupBy(x => NormalizeSo(x.SO), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            lines.Add($"Phát hiện {groupedSent.Count} SO đã có trong lịch sử gửi thành công:");
+            foreach (var group in groupedSent.Take(20))
+            {
+                var latest = group.First();
+                var hang = string.IsNullOrWhiteSpace(latest.HANGBANGLAI)
+                    ? ""
+                    : $" | Hạng {latest.HANGBANGLAI}";
+                var sentAt = string.IsNullOrWhiteSpace(latest.SentAt)
+                    ? ""
+                    : $" | Gửi lúc {latest.SentAt}";
+                lines.Add($"• {group.Key}{hang}{sentAt}");
+            }
+
+            if (groupedSent.Count > 20)
+                lines.Add($"• ... và {groupedSent.Count - 20} SO đã gửi khác.");
+        }
+
+        lines.Add("");
+        lines.Add("Các hồ sơ này sẽ không được gửi lại để tránh trùng dữ liệu.");
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private sealed record DuplicateSoGroup(
+        string So,
+        IReadOnlyList<int> DisplayIndexes,
+        IReadOnlyList<string> Names);
 
 
     private async void ExportSignedXml_Click(
@@ -377,12 +483,6 @@ public partial class MainWindow : Window
 
             var selected = _records
                 .Where(x => x.IsSelected)
-                .GroupBy(x => new
-                {
-                    SO = (x.SO ?? "").Trim().ToUpperInvariant(),
-                    HANG = (x.HANGBANGLAI ?? "").Trim().ToUpperInvariant()
-                })
-                .Select(g => g.First())
                 .ToList();
 
             if (selected.Count == 0)
@@ -393,6 +493,31 @@ public partial class MainWindow : Window
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
+            }
+
+            var duplicateGroups = FindDuplicateSoGroups(selected);
+            if (duplicateGroups.Count > 0)
+            {
+                MessageBox.Show(
+                    BuildSoCheckMessage(duplicateGroups, Array.Empty<SentHistoryMatch>()),
+                    "Không thể xuất XML - trùng SO",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            var sentMatches = _sentHistory.FindBySos(selected.Select(x => x.SO));
+            if (sentMatches.Count > 0)
+            {
+                var continueExport = MessageBox.Show(
+                    BuildSoCheckMessage(Array.Empty<DuplicateSoGroup>(), sentMatches) +
+                    "\n\nXuất XML không gửi cổng. Đại ca vẫn muốn xuất lại XML cho các hồ sơ đã gửi?",
+                    "SO đã từng gửi",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (continueExport != MessageBoxResult.Yes)
+                    return;
             }
 
             var valid = new List<GkskRecord>();
@@ -626,26 +751,24 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Chặn trùng trong chính lượt gửi hiện tại theo SO + HANGBANGLAI.
-            // Giữ hồ sơ đầu tiên của mỗi khóa.
-            var uniqueSelected =
-                selected
-                    .GroupBy(
-                        x => new
-                        {
-                            SO = (x.SO ?? "").Trim().ToUpperInvariant(),
-                            HANG = (x.HANGBANGLAI ?? "").Trim().ToUpperInvariant()
-                        })
-                    .Select(g => g.First())
-                    .ToList();
+            // SO là mã định danh hồ sơ: không cho phép trùng, kể cả khác hạng GPLX.
+            var duplicateGroups = FindDuplicateSoGroups(selected);
+            var sentMatches = _sentHistory.FindBySos(selected.Select(x => x.SO));
 
-            var duplicateCount =
-                selected.Count - uniqueSelected.Count;
+            if (duplicateGroups.Count > 0 || sentMatches.Count > 0)
+            {
+                MessageBox.Show(
+                    BuildSoCheckMessage(duplicateGroups, sentMatches),
+                    "Không thể gửi - trùng SO",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
 
             var valid =
                 new List<GkskRecord>();
 
-            foreach (var r in uniqueSelected)
+            foreach (var r in selected)
             {
                 // Cổng KSK Lái xe yêu cầu nồng độ cồn luôn bằng 0.
                 r.NONGDOCON = "0";
@@ -666,7 +789,7 @@ public partial class MainWindow : Window
             }
 
             var invalidCount =
-                uniqueSelected.Count - valid.Count;
+                selected.Count - valid.Count;
 
             if (valid.Count == 0)
             {
@@ -743,14 +866,9 @@ public partial class MainWindow : Window
                 }
             }
 
-            var note =
-                duplicateCount > 0
-                    ? $"\nĐã tự loại {duplicateCount} hồ sơ trùng SO + Hạng GPLX trong lượt gửi."
-                    : "";
-
             var confirm =
                 MessageBox.Show(
-                    $"Sẽ gửi {valid.Count} hồ sơ hợp lệ.{note}\n" +
+                    $"Sẽ gửi {valid.Count} hồ sơ hợp lệ.\n" +
                     (invalidCount > 0
                         ? $"Có {invalidCount} hồ sơ lỗi sẽ được bỏ qua.\n"
                         : "") +
@@ -920,9 +1038,6 @@ public partial class MainWindow : Window
                 $"Lỗi: {failedCount}" +
                 (signingServerDisconnected
                     ? $"\nChưa xử lý: {valid.Count - processedCount} hồ sơ do Signing Server mất kết nối."
-                    : "") +
-                (duplicateCount > 0
-                    ? $"\nĐã bỏ qua trùng: {duplicateCount}"
                     : ""),
                 "Kết quả gửi hàng loạt",
                 MessageBoxButton.OK,

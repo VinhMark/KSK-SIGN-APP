@@ -181,6 +181,60 @@ public sealed class SentHistoryService
         cmd.ExecuteNonQuery();
     }
 
+
+    public IReadOnlyList<SentHistoryMatch> FindBySos(IEnumerable<string?> soValues)
+    {
+        var wanted = soValues
+            .Select(NormalizeSo)
+            .Where(x => x.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (wanted.Count == 0)
+            return Array.Empty<SentHistoryMatch>();
+
+        var result = new List<SentHistoryMatch>();
+
+        using var cn = new SqliteConnection(ConnectionString);
+        cn.Open();
+
+        using var cmd = cn.CreateCommand();
+        cmd.CommandText =
+            """
+            SELECT SO, HANGBANGLAI, SourceDate, SentAt, UUID, MSG_STATE, MSG_TEXT
+            FROM SentHistory
+            ORDER BY SentAt DESC;
+            """;
+
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+        {
+            var so = rd.IsDBNull(0) ? "" : rd.GetString(0).Trim();
+            if (!wanted.Contains(NormalizeSo(so)))
+                continue;
+
+            result.Add(new SentHistoryMatch(
+                SO: so,
+                HANGBANGLAI: rd.IsDBNull(1) ? "" : rd.GetString(1).Trim(),
+                SourceDate: rd.IsDBNull(2) ? "" : rd.GetString(2).Trim(),
+                SentAt: rd.IsDBNull(3) ? "" : rd.GetString(3).Trim(),
+                UUID: rd.IsDBNull(4) ? "" : rd.GetString(4).Trim(),
+                MessageState: rd.IsDBNull(5) ? "" : rd.GetString(5).Trim(),
+                MessageText: rd.IsDBNull(6) ? "" : rd.GetString(6).Trim()));
+        }
+
+        return result;
+    }
+
+    public bool WasSoSent(string? so)
+    {
+        return FindBySos([so]).Count > 0;
+    }
+
+    private static string NormalizeSo(string? so)
+    {
+        return (so ?? "").Trim().ToUpperInvariant();
+    }
+
     private static string BuildKey(
         string? so,
         string? hangBangLai)
@@ -190,3 +244,13 @@ public sealed class SentHistoryService
             $"{(hangBangLai ?? "").Trim().ToUpperInvariant()}";
     }
 }
+
+
+public sealed record SentHistoryMatch(
+    string SO,
+    string HANGBANGLAI,
+    string SourceDate,
+    string SentAt,
+    string UUID,
+    string MessageState,
+    string MessageText);

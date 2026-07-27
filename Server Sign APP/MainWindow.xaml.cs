@@ -34,6 +34,9 @@ public partial class MainWindow : Window
     private bool _allowRealClose;
     private bool _loaded;
     private ManagerSettings _managerSettings = new();
+    private readonly Pkcs11DiscoveryService _pkcs11Discovery = new();
+    private string _savedTokenSerial = "";
+    private string _savedCertificateThumbprint = "";
 
     public MainWindow()
     {
@@ -48,8 +51,8 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(_logsDir);
 
         InitializeTrayIcon();
-        RefreshCertificates();
         LoadServerSettings();
+        RefreshTokens(showDialog: false);
         LoadManagerSettings();
         UpdateAddress();
         SetServerState(ServerUiState.Stopped, "Đã dừng");
@@ -136,121 +139,196 @@ public partial class MainWindow : Window
 
     private static string FindServerDirectory()
     {
-        var searched = new List<string>();
-
-        static IEnumerable<string> WalkParents(string startPath)
+        var candidates = new[]
         {
-            var current = new DirectoryInfo(Path.GetFullPath(startPath));
-            while (current is not null)
-            {
-                yield return current.FullName;
-                current = current.Parent;
-            }
-        }
+            Path.Combine(AppContext.BaseDirectory, "KSKSigningServer"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "KSKSigningServer")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "KSKSigningServer")),
+            Path.Combine(Directory.GetCurrentDirectory(), "KSKSigningServer")
+        };
 
-        var roots = WalkParents(AppContext.BaseDirectory)
-            .Concat(WalkParents(Directory.GetCurrentDirectory()))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var root in roots)
-        {
-            var candidate = Path.Combine(root, "KSKSigningServer");
-            searched.Add(candidate);
-
-            if (File.Exists(Path.Combine(candidate, "KSKSigningServer.exe")) ||
-                File.Exists(Path.Combine(candidate, "KSKSigningServer.dll")) ||
-                File.Exists(Path.Combine(candidate, "KSKSigningServer.csproj")))
-            {
-                return candidate;
-            }
-        }
-
-        var bundledCandidate = Path.Combine(AppContext.BaseDirectory, "KSKSigningServer");
-        searched.Add(bundledCandidate);
-
-        throw new DirectoryNotFoundException(
-            "Không tìm thấy thư mục KSKSigningServer.`n`nĐã kiểm tra:`n- " +
-            string.Join("`n- ", searched.Distinct(StringComparer.OrdinalIgnoreCase)));
+        return candidates.FirstOrDefault(Directory.Exists) ?? Path.Combine(AppContext.BaseDirectory, "KSKSigningServer");
     }
 
-    private void RefreshCertificates_Click(object sender, RoutedEventArgs e) => RefreshCertificates();
+    private void BrowseLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Chọn thư viện PKCS#11",
+            Filter = "PKCS#11 library (*.dll)|*.dll|Tất cả tệp (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
 
-    private void RefreshCertificates()
+        if (dialog.ShowDialog(this) == true)
+        {
+            LibraryPathText.Text = dialog.FileName;
+            RefreshTokens(showDialog: true);
+        }
+    }
+
+    private void TestLibrary_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var selectedThumbprint = ThumbprintText.Text?.Trim() ?? "";
-            var items = new List<CertificateItem>();
-
-            using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
-            store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-
-            foreach (var cert in store.Certificates.Cast<X509Certificate2>()
-                         .Where(c => c.HasPrivateKey &&
-                             (c.Issuer.Contains("MISA-CA", StringComparison.OrdinalIgnoreCase) ||
-                              c.Subject.Contains("MISA-CA", StringComparison.OrdinalIgnoreCase))))
-            {
-                items.Add(new CertificateItem(cert));
-            }
-
-            CertificateCombo.ItemsSource = items;
-            var match = items.FirstOrDefault(x => x.Thumbprint.Equals(selectedThumbprint, StringComparison.OrdinalIgnoreCase));
-            if (match is not null) CertificateCombo.SelectedItem = match;
-            else if (items.Count > 0) CertificateCombo.SelectedIndex = 0;
-
-            if (items.Count == 0)
-            {
-                CertificateStatusText.Text = "Không tìm thấy chứng thư MISA-CA có private key.";
-                WriteLog("WARNING", "Không tìm thấy chứng thư MISA-CA có private key.");
-            }
-            else WriteLog("INFO", $"Đã quét thấy {items.Count} chứng thư MISA-CA.");
+            var tokens = _pkcs11Discovery.GetTokens(LibraryPathText.Text.Trim());
+            WriteLog("SUCCESS", $"Đã nạp DLL PKCS#11. Tìm thấy {tokens.Count} Token.");
+            WpfMessageBox.Show(
+                $"Thư viện PKCS#11 hợp lệ.\nTìm thấy {tokens.Count} Token đang kết nối.",
+                "Kiểm tra DLL thành công",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            CertificateStatusText.Text = "Lỗi quét chứng thư: " + ex.Message;
-            WriteLog("ERROR", "Lỗi quét chứng thư: " + ex.Message);
+            WriteLog("ERROR", "Kiểm tra DLL thất bại: " + ex.Message);
+            WpfMessageBox.Show(ex.Message, "DLL PKCS#11 không hợp lệ", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void RefreshTokens_Click(object sender, RoutedEventArgs e) => RefreshTokens(showDialog: true);
+
+    private void RefreshTokens(bool showDialog)
+    {
+        try
+        {
+            var path = LibraryPathText.Text.Trim();
+            var tokens = _pkcs11Discovery.GetTokens(path);
+            TokenCombo.ItemsSource = tokens;
+            CertificateCombo.ItemsSource = null;
+            CertificateDetailsText.Clear();
+            CertificateStatusText.Text = tokens.Count == 0
+                ? "Không tìm thấy USB Token."
+                : $"Đã tìm thấy {tokens.Count} USB Token.";
+
+            var selected = tokens.FirstOrDefault(x =>
+                string.Equals(x.Serial, _savedTokenSerial, StringComparison.OrdinalIgnoreCase));
+            if (selected is not null) TokenCombo.SelectedItem = selected;
+            else if (tokens.Count > 0) TokenCombo.SelectedIndex = 0;
+
+            WriteLog(tokens.Count > 0 ? "SUCCESS" : "WARNING", $"Quét PKCS#11: tìm thấy {tokens.Count} Token.");
+            if (showDialog && tokens.Count == 0)
+                WpfMessageBox.Show("DLL đã nạp được nhưng không tìm thấy USB Token đang kết nối.", "Không tìm thấy Token", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            TokenCombo.ItemsSource = null;
+            CertificateCombo.ItemsSource = null;
+            CertificateDetailsText.Clear();
+            CertificateStatusText.Text = "Lỗi PKCS#11: " + ex.Message;
+            WriteLog("ERROR", "Quét Token thất bại: " + ex.Message);
+            if (showDialog)
+                WpfMessageBox.Show(ex.Message, "Không thể quét Token", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void TokenCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TokenCombo.SelectedItem is not Pkcs11TokenItem token)
+        {
+            CertificateCombo.ItemsSource = null;
+            return;
+        }
+
+        try
+        {
+            var certificates = _pkcs11Discovery.GetCertificates(
+                LibraryPathText.Text.Trim(), token.Serial, token.SlotId);
+            CertificateCombo.ItemsSource = certificates;
+
+            var selected = certificates.FirstOrDefault(x =>
+                string.Equals(x.Thumbprint, _savedCertificateThumbprint, StringComparison.OrdinalIgnoreCase));
+            if (selected is not null) CertificateCombo.SelectedItem = selected;
+            else if (certificates.Count > 0) CertificateCombo.SelectedIndex = 0;
+
+            CertificateStatusText.Text = certificates.Count == 0
+                ? $"Token {token.Label} không có chứng thư X.509 đọc được."
+                : $"{token.Label} — Serial {token.Serial}";
+            WriteLog(certificates.Count > 0 ? "INFO" : "WARNING",
+                $"Token {token.Label} ({token.Serial}): tìm thấy {certificates.Count} chứng thư.");
+        }
+        catch (Exception ex)
+        {
+            CertificateCombo.ItemsSource = null;
+            CertificateDetailsText.Clear();
+            CertificateStatusText.Text = "Không đọc được chứng thư: " + ex.Message;
+            WriteLog("ERROR", "Không đọc được chứng thư Token: " + ex.Message);
         }
     }
 
     private void CertificateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CertificateCombo.SelectedItem is not CertificateItem item) return;
-        ThumbprintText.Text = item.Thumbprint;
+        if (CertificateCombo.SelectedItem is not Pkcs11CertificateItem item)
+        {
+            CertificateDetailsText.Clear();
+            return;
+        }
+
+        CertificateDetailsText.Text =
+            $"Chủ thể: {item.FullSubject}\n" +
+            $"Nhà cấp: {item.Issuer}\n" +
+            $"Serial: {item.SerialNumber}\n" +
+            $"Thumbprint: {item.Thumbprint}\n" +
+            $"Hiệu lực: {item.NotBefore:dd/MM/yyyy} - {item.NotAfter:dd/MM/yyyy}";
+
         CertificateStatusText.Text = item.IsExpired
             ? $"{item.Subject} — ĐÃ HẾT HẠN {item.NotAfter:dd/MM/yyyy}"
-            : $"{item.Subject} — còn hạn đến {item.NotAfter:dd/MM/yyyy}";
+            : item.IsNotYetValid
+                ? $"{item.Subject} — CHƯA ĐẾN NGÀY HIỆU LỰC"
+                : $"{item.Subject} — còn hạn đến {item.NotAfter:dd/MM/yyyy}";
+    }
+
+    private void LibraryPathText_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!IsInitialized) return;
+        TokenCombo.ItemsSource = null;
+        CertificateCombo.ItemsSource = null;
+        CertificateDetailsText.Clear();
+        CertificateStatusText.Text = "DLL đã thay đổi — bấm Quét lại.";
     }
 
     private void GenerateApiKey_Click(object sender, RoutedEventArgs e)
     {
-        ApiKeyText.Text = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        ApiKeyBox.Password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         UpdateAddress();
     }
+
     private void CopyApiKey_Click(object sender, RoutedEventArgs e)
     {
-        var apiKey = ApiKeyText.Text?.Trim() ?? "";
-
+        var apiKey = ApiKeyBox.Password?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            WpfMessageBox.Show(
-                "API Key đang trống.",
-                "Không thể sao chép",
+            System.Windows.MessageBox.Show(
+                "Chưa có API Key để sao chép. Hãy bấm Tạo mới trước.",
+                "API Key",
                 MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                MessageBoxImage.Information);
             return;
         }
 
-        System.Windows.Clipboard.SetText(apiKey);
-        WriteLog("INFO", "Đã sao chép API Key vào Clipboard.");
-        WpfMessageBox.Show(
-            "Đã sao chép API Key.",
-            "Thành công",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        try
+        {
+            System.Windows.Clipboard.SetText(apiKey);
+            System.Windows.MessageBox.Show(
+                "Đã sao chép API Key vào Clipboard.",
+                "API Key",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Không thể sao chép API Key: {ex.Message}",
+                "API Key",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void LoadServerSettings()
     {
+        LibraryPathText.Text = @"C:\Windows\System32\misaca_csp11_v2.dll";
+
         try
         {
             if (!File.Exists(_settingsPath))
@@ -260,17 +338,34 @@ public partial class MainWindow : Window
             }
 
             using var doc = JsonDocument.Parse(File.ReadAllText(_settingsPath));
-            var s = doc.RootElement.GetProperty("SigningServer");
-            var urls = s.TryGetProperty("Urls", out var u) ? u.GetString() ?? "" : "";
-            if (Uri.TryCreate(urls.Replace("0.0.0.0", "127.0.0.1"), UriKind.Absolute, out var uri)) PortText.Text = uri.Port.ToString();
+            var config = doc.RootElement.GetProperty("SigningServer");
+            var urls = config.TryGetProperty("Urls", out var urlsNode) ? urlsNode.GetString() ?? "" : "";
+            if (Uri.TryCreate(urls.Replace("0.0.0.0", "127.0.0.1"), UriKind.Absolute, out var uri))
+                PortText.Text = uri.Port.ToString();
 
-            ApiKeyText.Text = s.TryGetProperty("ApiKey", out var a) ? a.GetString() ?? "" : "";
-            var thumb = s.TryGetProperty("CertificateThumbprint", out var t) ? t.GetString() ?? "" : "";
-            ThumbprintText.Text = thumb;
-            var match = CertificateCombo.Items.Cast<CertificateItem>().FirstOrDefault(x => x.Thumbprint.Equals(thumb, StringComparison.OrdinalIgnoreCase));
-            if (match is not null) CertificateCombo.SelectedItem = match;
+            ApiKeyBox.Password = config.TryGetProperty("ApiKey", out var apiKeyNode)
+                ? apiKeyNode.GetString() ?? ""
+                : "";
+            LibraryPathText.Text = config.TryGetProperty("Pkcs11LibraryPath", out var libraryNode)
+                ? libraryNode.GetString() ?? LibraryPathText.Text
+                : LibraryPathText.Text;
+            _savedTokenSerial = config.TryGetProperty("TokenSerial", out var serialNode)
+                ? serialNode.GetString() ?? ""
+                : "";
+            _savedCertificateThumbprint = config.TryGetProperty("CertificateThumbprint", out var thumbNode)
+                ? thumbNode.GetString() ?? ""
+                : "";
+            var encryptedPin = config.TryGetProperty("EncryptedPin", out var pinNode)
+                ? pinNode.GetString() ?? ""
+                : "";
+            TokenPinBox.Password = PinProtection.TryUnprotect(encryptedPin, out var pin)
+                ? pin
+                : "";
+            if (!string.IsNullOrWhiteSpace(encryptedPin) && string.IsNullOrWhiteSpace(TokenPinBox.Password))
+                WriteLog("WARNING", "Không giải mã được PIN đã lưu. Hãy nhập lại PIN và lưu cấu hình.");
 
-            if (string.IsNullOrWhiteSpace(ApiKeyText.Text) || ApiKeyText.Text.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(ApiKeyBox.Password) ||
+                ApiKeyBox.Password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
                 GenerateApiKey_Click(this, new RoutedEventArgs());
 
             WriteLog("INFO", "Đã tải cấu hình Signing Server.");
@@ -318,41 +413,37 @@ public partial class MainWindow : Window
     {
         if (!int.TryParse(PortText.Text, out var port) || port is < 1024 or > 65535)
             throw new InvalidOperationException("Cổng Server phải từ 1024 đến 65535.");
-        if (string.IsNullOrWhiteSpace(ApiKeyText.Text) || ApiKeyText.Text.Length < 24)
+        if (string.IsNullOrWhiteSpace(ApiKeyBox.Password) || ApiKeyBox.Password.Length < 24)
             throw new InvalidOperationException("API Key phải có ít nhất 24 ký tự.");
-        if (string.IsNullOrWhiteSpace(ThumbprintText.Text))
-            throw new InvalidOperationException("Chưa chọn chứng thư MISA-CA.");
-
-        var encryptedPin = "";
-        if (RememberPinCheck.IsChecked == true && !string.IsNullOrEmpty(PinBox.Password))
-        {
-            var protectedBytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(PinBox.Password), null, DataProtectionScope.CurrentUser);
-            encryptedPin = Convert.ToBase64String(protectedBytes);
-        }
-        else if (File.Exists(_settingsPath))
-        {
-            try
-            {
-                using var old = JsonDocument.Parse(File.ReadAllText(_settingsPath));
-                encryptedPin = old.RootElement.GetProperty("SigningServer").GetProperty("EncryptedPin").GetString() ?? "";
-            }
-            catch { }
-        }
+        if (string.IsNullOrWhiteSpace(TokenPinBox.Password))
+            throw new InvalidOperationException("Chưa nhập mã PIN USB Token trên Server.");
+        if (string.IsNullOrWhiteSpace(LibraryPathText.Text) || !File.Exists(LibraryPathText.Text.Trim()))
+            throw new InvalidOperationException("Chưa chọn DLL PKCS#11 hợp lệ.");
+        if (TokenCombo.SelectedItem is not Pkcs11TokenItem selectedToken)
+            throw new InvalidOperationException("Chưa chọn USB Token.");
+        if (CertificateCombo.SelectedItem is not Pkcs11CertificateItem selectedCertificate)
+            throw new InvalidOperationException("Chưa chọn chứng thư ký trong USB Token.");
+        if (selectedCertificate.IsExpired)
+            throw new InvalidOperationException($"Chứng thư đã hết hạn ngày {selectedCertificate.NotAfter:dd/MM/yyyy}.");
+        if (selectedCertificate.IsNotYetValid)
+            throw new InvalidOperationException($"Chứng thư chưa có hiệu lực. Ngày bắt đầu: {selectedCertificate.NotBefore:dd/MM/yyyy}.");
 
         var serverConfig = new
         {
             SigningServer = new
             {
                 Urls = $"http://0.0.0.0:{port}",
-                ApiKey = ApiKeyText.Text.Trim(),
+                ApiKey = ApiKeyBox.Password.Trim(),
                 AllowedIps = ResolveAllowedIps(),
-                CertificateThumbprint = ThumbprintText.Text.Trim(),
-                CertificateSubjectContains = "MISA-CA",
-                StoreLocation = "CurrentUser",
+                Pkcs11LibraryPath = LibraryPathText.Text.Trim(),
+                TokenLabelContains = selectedToken.Label,
+                TokenSerial = selectedToken.Serial,
+                CertificateThumbprint = selectedCertificate.Thumbprint,
+                CertificateSubjectContains = "",
+                EncryptedPin = PinProtection.Protect(TokenPinBox.Password),
                 RequireKskRoot = true,
-                FacilityCode = "",
-                MaxRequestBytes = 2097152,
-                EncryptedPin = encryptedPin
+                FacilityCode = ReadExistingSetting("FacilityCode", ""),
+                MaxRequestBytes = 2097152
             }
         };
 
@@ -368,6 +459,23 @@ public partial class MainWindow : Window
         File.WriteAllText(_managerSettingsPath, JsonSerializer.Serialize(_managerSettings, new JsonSerializerOptions { WriteIndented = true }));
         ConfigureWindowsStartup(_managerSettings.AutoStartWindows);
         UpdateAddress();
+    }
+
+    private string ReadExistingSetting(string propertyName, string fallback)
+    {
+        try
+        {
+            if (!File.Exists(_settingsPath)) return fallback;
+            using var document = JsonDocument.Parse(File.ReadAllText(_settingsPath));
+            var server = document.RootElement.GetProperty("SigningServer");
+            return server.TryGetProperty(propertyName, out var value)
+                ? value.GetString() ?? fallback
+                : fallback;
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 
     private void ConfigureWindowsStartup(bool enabled)
@@ -413,32 +521,15 @@ public partial class MainWindow : Window
             WriteLog("INFO", $"Đang khởi động Signing Server tại cổng {port}.");
 
             var exe = Path.Combine(_serverDir, "KSKSigningServer.exe");
-            var dll = Path.Combine(_serverDir, "KSKSigningServer.dll");
-            var project = Path.Combine(_serverDir, "KSKSigningServer.csproj");
-
             ProcessStartInfo psi;
             if (File.Exists(exe))
             {
-                psi = new ProcessStartInfo(exe)
-                {
-                    WorkingDirectory = _serverDir,
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
+                psi = new ProcessStartInfo(exe) { WorkingDirectory = _serverDir, UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden };
             }
-            else if (File.Exists(dll))
+            else
             {
-                psi = new ProcessStartInfo("dotnet", $"\"{dll}\"")
-                {
-                    WorkingDirectory = _serverDir,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-            }
-            else if (File.Exists(project))
-            {
+                var project = Path.Combine(_serverDir, "KSKSigningServer.csproj");
+                if (!File.Exists(project)) throw new FileNotFoundException("Không tìm thấy KSKSigningServer.exe hoặc project server.", project);
                 psi = new ProcessStartInfo("dotnet", $"run --project \"{project}\"")
                 {
                     WorkingDirectory = _serverDir,
@@ -447,12 +538,6 @@ public partial class MainWindow : Window
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
-            }
-            else
-            {
-                throw new FileNotFoundException(
-                    "Đã tìm thấy thư mục server nhưng không có KSKSigningServer.exe, KSKSigningServer.dll hoặc KSKSigningServer.csproj.",
-                    _serverDir);
             }
 
             _serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -467,11 +552,11 @@ public partial class MainWindow : Window
                 _serverProcess.BeginErrorReadLine();
             }
 
-            await WaitForServerReadyAsync();
+            await WarmUpTokenSessionAsync();
             SetServerState(ServerUiState.Running, "Đang hoạt động");
-            WriteLog("SUCCESS", "Signing Server đã hoạt động. Token chưa được kích hoạt; Client sẽ nhập PIN khi cần.");
+            WriteLog("SUCCESS", "Signing Server đã hoạt động. PIN được quản lý và tự đăng nhập tại Server.");
             if (showSuccessDialog)
-                WpfMessageBox.Show("Signing Server đã khởi động. Token sẽ chỉ được kích hoạt khi Client gửi PIN hợp lệ.", "Server sẵn sàng", MessageBoxButton.OK, MessageBoxImage.Information);
+                WpfMessageBox.Show("Signing Server đã khởi động và đăng nhập USB Token thành công. Client chỉ cần kết nối để ký.", "Server sẵn sàng", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -494,13 +579,13 @@ public partial class MainWindow : Window
         });
     }
 
-    private async Task WaitForServerReadyAsync()
+    private async Task WarmUpTokenSessionAsync()
     {
         if (!int.TryParse(PortText.Text, out var port))
             throw new InvalidOperationException("Cổng Server không hợp lệ.");
 
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", ApiKeyText.Text.Trim());
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", ApiKeyBox.Password.Trim());
         var statusUrl = $"http://127.0.0.1:{port}/api/status";
         Exception? lastError = null;
 
@@ -508,11 +593,28 @@ public partial class MainWindow : Window
         {
             try
             {
-                using var statusResponse = await client.GetAsync(statusUrl);
-                if (statusResponse.IsSuccessStatusCode)
-                    return;
+                using var response = await client.GetAsync(statusUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var statusDoc = JsonDocument.Parse(json);
+                    var activated = statusDoc.RootElement.TryGetProperty("tokenActivated", out var node) && node.GetBoolean();
+                    if (activated)
+                    {
+                        WriteLog("INFO", "Server đã sẵn sàng và USB Token đã đăng nhập bằng PIN cấu hình tại Server.");
+                        return;
+                    }
 
-                lastError = new InvalidOperationException($"Server trả HTTP {(int)statusResponse.StatusCode}.");
+                    var message = statusDoc.RootElement.TryGetProperty("pkcs11", out var pkcs11) &&
+                                  pkcs11.TryGetProperty("lastError", out var errorNode)
+                        ? errorNode.GetString()
+                        : null;
+                    lastError = new InvalidOperationException(message ?? "Server đã chạy nhưng chưa đăng nhập được USB Token.");
+                }
+                else
+                {
+                    lastError = new InvalidOperationException($"Server trả HTTP {(int)response.StatusCode}.");
+                }
             }
             catch (HttpRequestException ex) { lastError = ex; }
             catch (TaskCanceledException ex) { lastError = ex; }
@@ -663,24 +765,6 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private sealed class CertificateItem
-    {
-        public CertificateItem(X509Certificate2 cert)
-        {
-            Thumbprint = cert.Thumbprint ?? "";
-            Subject = cert.GetNameInfo(X509NameType.SimpleName, false);
-            NotAfter = cert.NotAfter;
-            IsExpired = cert.NotAfter <= DateTime.Now;
-            DisplayName = $"{Subject} | Hết hạn {NotAfter:dd/MM/yyyy}" + (IsExpired ? " | ĐÃ HẾT HẠN" : "");
-        }
-
-        public string Thumbprint { get; }
-        public string Subject { get; }
-        public DateTime NotAfter { get; }
-        public bool IsExpired { get; }
-        public string DisplayName { get; }
-    }
-
     private sealed class ManagerSettings
     {
         public bool AutoStartWindows { get; set; }
@@ -696,5 +780,3 @@ public partial class MainWindow : Window
         Error
     }
 }
-
-

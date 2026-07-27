@@ -159,16 +159,13 @@ _config.SaveApi(
 
     private void UpdateSigningControls()
     {
-        if (SigningServerUrlBox is null || SigningApiKeyBox is null || TestSigningButton is null ||
-            TokenPinBox is null || ActivateTokenButton is null)
+        if (SigningServerUrlBox is null || SigningApiKeyBox is null || TestSigningButton is null)
             return;
 
         bool enabled = LanSigningRadio?.IsChecked == true;
         SigningServerUrlBox.IsEnabled = enabled;
         SigningApiKeyBox.IsEnabled = enabled;
-        TokenPinBox.IsEnabled = enabled;
         TestSigningButton.IsEnabled = enabled;
-        ActivateTokenButton.IsEnabled = enabled;
     }
 
     private async void TestSigning_Click(object sender, RoutedEventArgs e)
@@ -187,43 +184,10 @@ _config.SaveApi(
             SigningTestStatus.Text = status.Success
                 ? $"Kết nối thành công. Chứng thư: {status.Certificate?.Subject ?? "Không xác định"}"
                 : "Server phản hồi nhưng chưa sẵn sàng.";
-            TokenActivationStatus.Text = status.TokenActivated
-                ? "Token đang được kích hoạt trên Server."
-                : "Token chưa kích hoạt. Hãy nhập PIN và bấm Kích hoạt Token.";
         }
         catch (Exception ex)
         {
             SigningTestStatus.Text = "Không kết nối được: " + ex.Message;
-        }
-    }
-
-    private async void ActivateToken_Click(object sender, RoutedEventArgs e)
-    {
-        TokenActivationStatus.Text = "Đang gửi PIN và kích hoạt Token...";
-        ActivateTokenButton.IsEnabled = false;
-
-        try
-        {
-            using var client = new LanSigningClient(
-                SigningServerUrlBox.Text.Trim(),
-                SigningApiKeyBox.Password);
-
-            var result = await client.ActivateTokenAsync(TokenPinBox.Password);
-            TokenPinBox.Clear();
-            SigningServerUrlBox.Text = LanSigningClient.NormalizeServerUrl(SigningServerUrlBox.Text);
-            SigningApiKeyBox.Password = LanSigningClient.NormalizeApiKey(SigningApiKeyBox.Password);
-            TokenActivationStatus.Text = result.TokenActivated
-                ? "Kích hoạt Token thành công. Có thể ký số qua LAN."
-                : result.Message ?? "Kích hoạt Token chưa thành công.";
-        }
-        catch (Exception ex)
-        {
-            TokenPinBox.Clear();
-            TokenActivationStatus.Text = "Kích hoạt thất bại: " + ex.Message;
-        }
-        finally
-        {
-            ActivateTokenButton.IsEnabled = LanSigningRadio.IsChecked == true;
         }
     }
 

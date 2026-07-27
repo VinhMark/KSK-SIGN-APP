@@ -2,6 +2,19 @@
   "version": 4,
   "targets": {
     "net8.0-windows": {
+      "Pkcs11Interop/5.3.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Pkcs11Interop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "System.Security.Cryptography.ProtectedData/8.0.0": {
         "type": "package",
         "compile": {
@@ -21,6 +34,28 @@
     }
   },
   "libraries": {
+    "Pkcs11Interop/5.3.0": {
+      "sha512": "NnnD5CheO5d0ZTP/clt7XCjUy+FraxZv0hVP0GWSvry8jH4IrLifta04M9cjITr0EzKshG4qnFu2pdZZfhjttA==",
+      "type": "package",
+      "path": "pkcs11interop/5.3.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.txt",
+        "NOTICE.txt",
+        "Pkcs11Interop.png",
+        "lib/net20/Pkcs11Interop.dll",
+        "lib/net20/Pkcs11Interop.xml",
+        "lib/net40/Pkcs11Interop.dll",
+        "lib/net40/Pkcs11Interop.xml",
+        "lib/net45/Pkcs11Interop.dll",
+        "lib/net45/Pkcs11Interop.xml",
+        "lib/netstandard2.0/Pkcs11Interop.dll",
+        "lib/netstandard2.0/Pkcs11Interop.xml",
+        "pkcs11interop.5.3.0.nupkg.sha512",
+        "pkcs11interop.nuspec"
+      ]
+    },
     "System.Security.Cryptography.ProtectedData/8.0.0": {
       "sha512": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg==",
       "type": "package",
@@ -60,6 +95,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0-windows": [
+      "Pkcs11Interop >= 5.3.0",
       "System.Security.Cryptography.ProtectedData >= 8.0.0"
     ]
   },
@@ -69,11 +105,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+      "projectUniqueName": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj",
       "projectName": "KSKSigningManager",
-      "projectPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\KSKSigningManager.csproj",
+      "projectPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\KSKSigningManager.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "D:\\Project\\v2\\KSK-SIGN-APP\\Server Sign APP\\obj\\",
+      "outputPath": "D:\\Project\\KSK-SIGN-APP_v11_Server_PIN\\Server Sign APP\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -110,6 +146,10 @@
         "framework": "net8.0-windows7.0",
         "targetAlias": "net8.0-windows",
         "dependencies": {
+          "Pkcs11Interop": {
+            "target": "Package",
+            "version": "[5.3.0, )"
+          },
           "System.Security.Cryptography.ProtectedData": {
             "target": "Package",
             "version": "[8.0.0, )"

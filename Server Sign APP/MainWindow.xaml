@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KSK Signing Server"
-        Width="1080" Height="760"
-        MinWidth="950" MinHeight="680"
+        Width="1120" Height="850"
+        MinWidth="1000" MinHeight="760"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing"
         Loaded="Window_Loaded">
@@ -22,7 +22,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="KSK SIGNING SERVER" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Primary}"/>
-                <TextBlock Text="Quản lý ký số MISA-CA qua mạng LAN" Margin="0,4,0,0" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
+                <TextBlock Text="Quản lý ký số PKCS#11 qua mạng LAN" Margin="0,4,0,0" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
             </StackPanel>
             <Border Grid.Column="1" x:Name="ServerStateBadge" Background="#E5E7EB" CornerRadius="16" Padding="14,7" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
@@ -39,56 +39,54 @@
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="165"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="Auto"/><RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="Auto"/><RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="10"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Chứng thư MISA-CA" FontWeight="SemiBold"/>
-                    <DockPanel Grid.Column="1">
-                        <Button Content="Quét lại" DockPanel.Dock="Right" Width="88" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}" Click="RefreshCertificates_Click"/>
-                        <ComboBox x:Name="CertificateCombo" DisplayMemberPath="DisplayName" SelectionChanged="CertificateCombo_SelectionChanged"/>
-                    </DockPanel>
-                    <TextBlock Grid.Row="2" Text="Thumbprint" FontWeight="SemiBold"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="ThumbprintText" IsReadOnly="True" Background="#F8FAFC"/>
-                    <TextBlock Grid.Row="4" Text="PIN Token" FontWeight="SemiBold"/>
-                    <PasswordBox Grid.Row="4" Grid.Column="1" x:Name="PinBox"/>
-                    <TextBlock Grid.Row="6" Text="Ghi nhớ PIN" FontWeight="SemiBold"/>
-                    <CheckBox Grid.Row="6" Grid.Column="1" x:Name="RememberPinCheck" Content="Mã hóa bằng Windows DPAPI trên tài khoản này" IsChecked="True" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Row="8" Text="Cổng Server" FontWeight="SemiBold"/>
-                    <TextBox Grid.Row="8" Grid.Column="1" x:Name="PortText" Text="7443" TextChanged="PortText_TextChanged"/>
-                    <TextBlock Grid.Row="10" Text="API Key" FontWeight="SemiBold"/>
-                    <Grid Grid.Row="10" Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBox x:Name="ApiKeyText"
-                                 Grid.Column="0"
-                                 MinWidth="220"
-                                 FontFamily="Consolas"
-                                 VerticalContentAlignment="Center"
-                                 ToolTip="API Key dùng cho máy khách"/>
-
-                        <Button Grid.Column="1"
-                                Content="COPY"
-                                Width="72"
-                                Margin="8,0,0,0"
-                                Style="{StaticResource SecondaryButton}"
-                                Click="CopyApiKey_Click"/>
-
-                        <Button Grid.Column="2"
-                                Content="Tạo mới"
-                                Width="82"
-                                Margin="8,0,0,0"
-                                Style="{StaticResource SecondaryButton}"
-                                Click="GenerateApiKey_Click"/>
+                    <TextBlock Text="Thư viện PKCS#11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="LibraryPathText" VerticalContentAlignment="Center" TextChanged="LibraryPathText_TextChanged"/>
+                        <Button Grid.Column="1" Content="Duyệt..." Width="80" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Click="BrowseLibrary_Click"/>
+                        <Button Grid.Column="2" Content="Kiểm tra" Width="82" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Click="TestLibrary_Click"/>
                     </Grid>
-                    <TextBlock Grid.Row="12" Text="Phạm vi truy cập" FontWeight="SemiBold"/>
-                    <StackPanel Grid.Row="12" Grid.Column="1">
+
+                    <TextBlock Grid.Row="2" Text="USB Token" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <DockPanel Grid.Row="2" Grid.Column="1">
+                        <Button Content="Quét lại" DockPanel.Dock="Right" Width="88" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}" Click="RefreshTokens_Click"/>
+                        <ComboBox x:Name="TokenCombo" DisplayMemberPath="DisplayName" SelectionChanged="TokenCombo_SelectionChanged"/>
+                    </DockPanel>
+
+                    <TextBlock Grid.Row="4" Text="Chứng thư ký" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="4" Grid.Column="1" x:Name="CertificateCombo" DisplayMemberPath="DisplayName" SelectionChanged="CertificateCombo_SelectionChanged"/>
+
+                    <TextBlock Grid.Row="6" Text="Thông tin chứng thư" FontWeight="SemiBold" VerticalAlignment="Top"/>
+                    <TextBox Grid.Row="6" Grid.Column="1" x:Name="CertificateDetailsText" IsReadOnly="True" Background="#F8FAFC" TextWrapping="Wrap" MinHeight="62" VerticalScrollBarVisibility="Auto"/>
+
+                    <TextBlock Grid.Row="8" Text="Mã PIN Token" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="8" Grid.Column="1">
+                        <PasswordBox x:Name="TokenPinBox" VerticalContentAlignment="Center" ToolTip="PIN chỉ lưu trên máy Server và được mã hóa bằng Windows DPAPI"/>
+                        <TextBlock Text="PIN được mã hóa theo tài khoản Windows hiện tại; Client không nhận và không nhập PIN." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="10" Text="Cổng Server" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="10" Grid.Column="1" x:Name="PortText" Text="7443" TextChanged="PortText_TextChanged"/>
+
+                    <TextBlock Grid.Row="12" Text="API Key" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <DockPanel Grid.Row="12" Grid.Column="1">
+                        <Button Content="Tạo mới" DockPanel.Dock="Right" Width="88" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}" Click="GenerateApiKey_Click"/>
+                        <Button Content="Sao chép" DockPanel.Dock="Right" Width="88" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}" Click="CopyApiKey_Click" ToolTip="Sao chép API Key vào Clipboard"/>
+                        <PasswordBox x:Name="ApiKeyBox" ToolTip="API Key được ẩn; dùng nút Sao chép để lấy giá trị"/>
+                    </DockPanel>
+
+                    <TextBlock Grid.Row="14" Text="Phạm vi truy cập" FontWeight="SemiBold" VerticalAlignment="Top"/>
+                    <StackPanel Grid.Row="14" Grid.Column="1">
                         <ComboBox x:Name="AccessModeCombo" SelectedIndex="0">
                             <ComboBoxItem Content="Tất cả máy trong mạng LAN hiện tại" Tag="LAN"/>
                             <ComboBoxItem Content="Chỉ máy này" Tag="LOCAL"/>
@@ -105,7 +103,7 @@
                     <Separator Margin="0,12"/>
                     <TextBlock Text="Địa chỉ LAN" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock x:Name="AddressText" Text="Đang xác định..." FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,12"/>
-                    <TextBlock Text="Chứng thư" Foreground="{StaticResource TextSecondary}"/>
+                    <TextBlock Text="Token / chứng thư" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock x:Name="CertificateStatusText" Text="Chưa kiểm tra" TextWrapping="Wrap" Margin="0,4,0,12"/>
                     <TextBlock Text="Tiến trình Server" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock x:Name="ProcessStatusText" Text="Chưa chạy" Margin="0,4,0,16"/>
@@ -137,4 +135,3 @@
         <TextBlock Grid.Row="6" x:Name="FooterText" Text="Đóng cửa sổ sẽ thu nhỏ xuống khay hệ thống. Dùng menu khay để thoát hoàn toàn." Foreground="{StaticResource TextSecondary}"/>
     </Grid>
 </Window>
-
